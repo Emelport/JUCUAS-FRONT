@@ -38,6 +38,8 @@ export class ConstancyComponent implements OnInit, OnDestroy {
   code: string | null = null;
   validate_qr: boolean = false;
   validate_qr_data: any = '';
+  coPresenters: any = [];
+  certPerCoPresenter: Boolean = false;
 
   constructor(
     private constansy: ConstancyService,
@@ -112,33 +114,72 @@ export class ConstancyComponent implements OnInit, OnDestroy {
   }
 
   createPdf(){
-    const pdfDefinition: any ={
-      content: [
-        {
-          image: this.file_content,
-          width: 600,
-          absolutePosition: { x: 0, y: 0 }
-        },
-        {text:[{text: this.dedicado.toString()+'\n',fontSize:17, alignment: 'center'}
-           ,{text:
-            'A: ___________________________________________________\n\n', fontSize: 17, bold:true },
-            this.title + ' "'+ this.tact.toString(),
-            '" en el marco de la ',
-            {text: 'Jornada Universitaria del Conocimiento UAS '+this.year+', ', fontSize: 12, bold: true},
-            {text: this.fecha, fontSize: 12, bold: false}
-            ,
-          ],
-          margin: [50, 408],
-          alignment: 'justify'
-        },
-        {
-          image: 'data:image/jpeg;base64,' + this.base,
-          width: 90,
-          absolutePosition: { x: 435, y: 640 }
-      }
-      ]
+    const pdfDefinition: any = {
+        content: [],
+      };
+
+    if (this.certPerCoPresenter && this.coPresenters.length > 0) {
+      this.coPresenters.forEach((presenter: any) => {
+        const certificateContent = [
+          {
+            image: this.file_content,
+            width: 600,
+            absolutePosition: { x: 0, y: 0 },
+          },
+          {
+            text: [
+              { text: this.dedicado.toString() + '\n', fontSize: 17, alignment: 'center' },
+              { text: `A: ${presenter.full_name_academic}\n\n`, fontSize: 17, bold: true },
+              this.title + ' "' + this.tact.toString() + '" en el marco de la ',
+              { text: 'Jornada Universitaria del Conocimiento UAS ' + this.year + ', ', fontSize: 12, bold: true },
+              { text: this.fecha, fontSize: 12, bold: false },
+            ],
+            margin: [50, 408],
+            alignment: 'justify',
+          },
+          {
+            image: 'data:image/jpeg;base64,' + this.base,
+            width: 90,
+            absolutePosition: { x: 435, y: 640 },
+          },
+        ];
+
+        // Agrega el contenido del certificado al PDF
+        pdfDefinition.content.push(...certificateContent);
+        pdfDefinition.content.push({ text: '', pageBreak: 'after' }); // Nueva página para el siguiente
+      });
+
     }
-    const pdf = pdfMake.createPdf(pdfDefinition);
+    else{
+      // Solo Un Certificado
+      const certificateContent = [
+          {
+            image: this.file_content,
+            width: 600,
+            absolutePosition: { x: 0, y: 0 }
+          },
+          {text:[{text: this.dedicado.toString()+'\n',fontSize:17, alignment: 'center'}
+             ,{text:
+              'A: ___________________________________________________\n\n', fontSize: 17, bold:true },
+              this.title + ' "'+ this.tact.toString(),
+              '" en el marco de la ',
+              {text: 'Jornada Universitaria del Conocimiento UAS '+this.year+', ', fontSize: 12, bold: true},
+              {text: this.fecha, fontSize: 12, bold: false}
+              ,
+            ],
+            margin: [50, 408],
+            alignment: 'justify'
+          },
+          {
+            image: 'data:image/jpeg;base64,' + this.base,
+            width: 90,
+            absolutePosition: { x: 435, y: 640 }
+        }
+      ]
+      pdfDefinition.content.push(...certificateContent);
+    }
+
+  const pdf = pdfMake.createPdf(pdfDefinition);
   pdf.open()
 
   pdf.getBase64((base64 => {
@@ -163,9 +204,17 @@ export class ConstancyComponent implements OnInit, OnDestroy {
         let year = start.substring(0,4);
         this.year = year;
         console.log(res)
+
         this.fecha = 'llevada a cabo del '+start_day+' de '+this.months[Number(start_month)-1]+' al '+end_day+' de '+this.months[Number(end_month)-1]+' de '+year+'. ';
-        this.fecha = 'llevada a cabo del '+start_day+' de '+this.months[Number(start_month-1)]+' al '+end_day+' de '+this.months[Number(end_month-1)]+' de '+year+'. ';
         this.file_content = res['message'].edition.file
+
+
+        // Verifica si certPerCoPresenter es verdadero
+        if (res['message'].certPerCoPresenter) {
+          this.certPerCoPresenter = res['message'].certPerCoPresenter;
+          this.coPresenters = res['message'].co_presenter;
+        }
+
         for (const key in res['message'].co_presenter) {
           if (Object.prototype.hasOwnProperty.call(res['message'].co_presenter, key)) {
             const element = res['message'].co_presenter[key];
@@ -176,7 +225,7 @@ export class ConstancyComponent implements OnInit, OnDestroy {
             }
           }
         }
-        
+
         this.createPdf()
       },
       (error) => {
@@ -187,6 +236,8 @@ export class ConstancyComponent implements OnInit, OnDestroy {
       }
     )
   }
+
+
 
   save_pdf(base64: string){
     //'data:application/pdf;base64,' +
